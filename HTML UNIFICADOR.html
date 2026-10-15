@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dossier · Unificador de soportes PDF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --paper:#F6F4EF;
+    --surface:#FFFFFF;
+    --ink:#1F2A2E;
+    --ink-soft:#5B6B6E;
+    --teal:#2B6777;
+    --teal-dark:#204F5B;
+    --gold:#B08B2E;
+    --line:#DEDACC;
+    --ok:#3E7A54;
+    --warn:#B4472A;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:1080px;
+    margin:0 auto;
+    padding:48px 32px 96px;
+  }
+  header.masthead{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:18px;
+    margin-bottom:36px;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  header.masthead h1{
+    font-family:'Source Serif 4',serif;
+    font-weight:600;
+    font-size:30px;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  header.masthead .folio{
+    font-size:13px;
+    color:var(--ink-soft);
+    font-variant-numeric:tabular-nums;
+    text-align:right;
+  }
+  .layout{
+    display:grid;
+    grid-template-columns:280px 1fr;
+    gap:44px;
+    align-items:start;
+  }
+  @media (max-width:860px){
+    .layout{grid-template-columns:1fr;}
+  }
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--line);
+  }
+  .rail{
+    padding:28px 24px;
+    position:sticky;
+    top:24px;
+  }
+  .rail h2, .docs h2{
+    font-family:'Source Serif 4',serif;
+    font-size:16px;
+    font-weight:600;
+    margin:0 0 18px;
+    color:var(--ink);
+  }
+  label.field-label{
+    display:block;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+    font-weight:500;
+  }
+  select, input[type="text"]{
+    width:100%;
+    padding:10px 11px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    font-family:'Inter',sans-serif;
+    font-size:14.5px;
+    color:var(--ink);
+    border-radius:var(--radius);
+  }
+  select:focus, input[type="text"]:focus, button:focus-visible, .slot input[type="file"]:focus + .slot-body{
+    outline:2px solid var(--teal);
+    outline-offset:1px;
+  }
+  .field{margin-bottom:20px;}
+  .fe-preview{
+    margin-top:8px;
+    font-size:13px;
+    color:var(--teal-dark);
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .rule-note{
+    margin-top:26px;
+    padding-top:18px;
+    border-top:1px solid var(--line);
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .rule-note strong{color:var(--ink);}
+  #groupPreview{margin-top:8px;}
+  #groupPreview .grp{
+    font-size:12.5px;
+    padding:6px 0;
+    border-bottom:1px dashed var(--line);
+    color:var(--ink-soft);
+  }
+  #groupPreview .grp:last-child{border-bottom:none;}
+  #groupPreview .grp b{color:var(--ink);font-variant-numeric:tabular-nums;}
+
+  .docs{padding:32px 32px 8px;}
+  .docs-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:6px;
+  }
+  .docs-sub{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0 0 24px;
+  }
+  .slot{
+    display:grid;
+    grid-template-columns:34px 1fr auto;
+    align-items:center;
+    gap:16px;
+    padding:16px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .slot:last-of-type{border-bottom:none;}
+  .slot-num{
+    font-family:'Source Serif 4',serif;
+    font-size:15px;
+    color:var(--ink-soft);
+  }
+  .slot-name{
+    font-size:14.5px;
+    font-weight:500;
+  }
+  .slot-hint{
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+  .slot-file{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    justify-self:end;
+  }
+  .file-btn{
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 14px;
+    border:1px solid var(--teal);
+    color:var(--teal-dark);
+    background:var(--surface);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    border-radius:var(--radius);
+    white-space:nowrap;
+  }
+  .file-btn:hover{background:#EEF4F4;}
+  .file-btn input[type="file"]{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    cursor:pointer;
+  }
+  .file-status{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    min-width:150px;
+    max-width:220px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .file-status.loaded{color:var(--ok);font-weight:600;}
+  .extra-group{
+    background:#FBFAF6;
+    margin:0 -32px;
+    padding:4px 32px 4px;
+    border-bottom:1px solid var(--line);
+  }
+  .extra-group .slot{border-bottom:1px solid var(--line);}
+  .extra-group .slot:last-of-type{border-bottom:none;}
+  .add-consulta{
+    margin:20px 0 4px;
+    padding-bottom:24px;
+  }
+  .ghost-btn{
+    background:none;
+    border:1px dashed var(--ink-soft);
+    color:var(--ink-soft);
+    padding:9px 16px;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    border-radius:var(--radius);
+    font-family:'Inter',sans-serif;
+  }
+  .ghost-btn:hover{border-color:var(--teal);color:var(--teal-dark);}
+  .ghost-btn.remove{border-color:var(--warn);color:var(--warn);}
+  .ghost-btn.remove:hover{background:#FBEEEA;}
+
+  .action-bar{
+    margin-top:36px;
+    display:flex;
+    align-items:center;
+    gap:18px;
+    flex-wrap:wrap;
+  }
+  .primary-btn{
+    background:var(--teal-dark);
+    color:#fff;
+    border:none;
+    padding:14px 26px;
+    font-size:14.5px;
+    font-weight:600;
+    cursor:pointer;
+    border-radius:var(--radius);
+    font-family:'Inter',sans-serif;
+    letter-spacing:0.01em;
+  }
+  .primary-btn:hover{background:var(--teal);}
+  .primary-btn:disabled{background:#B9C4C6;cursor:not-allowed;}
+  #statusMsg{
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  #statusMsg.error{color:var(--warn);font-weight:600;}
+  #statusMsg.success{color:var(--ok);font-weight:600;}
+
+  .log{
+    margin-top:28px;
+    border-top:1px solid var(--line);
+    padding-top:20px;
+    display:none;
+  }
+  .log.show{display:block;}
+  .log h3{
+    font-family:'Source Serif 4',serif;
+    font-size:15px;
+    margin:0 0 12px;
+  }
+  .log ul{list-style:none;margin:0;padding:0;}
+  .log li{
+    font-size:13px;
+    padding:6px 0;
+    border-bottom:1px dashed var(--line);
+    display:flex;
+    justify-content:space-between;
+    color:var(--ink-soft);
+  }
+  .log li b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;}
+
+  footer.foot{
+    max-width:1080px;
+    margin:40px auto 0;
+    padding:0 32px;
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Unificador de soportes · Consulta</h1>
+    <div class="folio">Clínica · Radicación de facturas<br>Genera y renombra los PDF según la aseguradora</div>
+  </header>
+
+  <div class="layout">
+
+    <div class="panel rail">
+      <h2>Datos del caso</h2>
+
+      <div class="field">
+        <label class="field-label" for="aseguradora">Aseguradora</label>
+        <select id="aseguradora">
+          <option value="">Selecciona una aseguradora…</option>
+          <option value="AXA">AXA Colpatria</option>
+          <option value="BOLIVAR">Bolívar</option>
+          <option value="SOLIDARIA">Solidaria</option>
+          <option value="ESTADO">Estado</option>
+          <option value="HDI">HDI</option>
+          <option value="MUNDIAL">Mundial</option>
+          <option value="SURAMERICANA">Suramericana</option>
+          <option value="PREVISORA">Previsora</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="numeroFactura">Número de factura (sin "FE")</label>
+        <input type="text" id="numeroFactura" placeholder="Ej: 1234" inputmode="numeric">
+        <div class="fe-preview" id="fePreview">FE —</div>
+      </div>
+
+      <div class="rule-note">
+        <strong>Archivos que se generarán</strong>
+        <div id="groupPreview">Selecciona una aseguradora y una factura para ver el resultado.</div>
+      </div>
+    </div>
+
+    <div class="panel docs">
+      <div class="docs-head">
+        <h2>Soportes de la consulta</h2>
+      </div>
+      <p class="docs-sub">Sube cada documento en formato PDF. El orden de las filas es el orden en el que quedarán unidas las páginas.</p>
+
+      <div class="slot" data-slot="hcInicial">
+        <div class="slot-num">1</div>
+        <div>
+          <div class="slot-name">HC inicial</div>
+          <div class="slot-hint">Historia de remisión</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir PDF<input type="file" accept="application/pdf,.pdf"></div>
+        </div>
+      </div>
+
+      <div class="slot" data-slot="orden1">
+        <div class="slot-num">2</div>
+        <div>
+          <div class="slot-name">Orden de consulta</div>
+          <div class="slot-hint">Orden o anexo</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir PDF<input type="file" accept="application/pdf,.pdf"></div>
+        </div>
+      </div>
+
+      <div class="slot" data-slot="historia1">
+        <div class="slot-num">3</div>
+        <div>
+          <div class="slot-name">Historia de consulta</div>
+          <div class="slot-hint">La de la clínica</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir PDF<input type="file" accept="application/pdf,.pdf"></div>
+        </div>
+      </div>
+
+      <div id="extraConsultas"></div>
+
+      <div class="add-consulta" id="addConsultaWrap">
+        <button type="button" class="ghost-btn" id="addConsultaBtn">+ Agregar otra consulta y orden</button>
+      </div>
+
+      <div class="slot" data-slot="documentos">
+        <div class="slot-num">4</div>
+        <div>
+          <div class="slot-name">Documentos</div>
+          <div class="slot-hint">Soportes generales</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir PDF<input type="file" accept="application/pdf,.pdf"></div>
+        </div>
+      </div>
+
+      <div class="slot" data-slot="furips">
+        <div class="slot-num">5</div>
+        <div>
+          <div class="slot-name">FURIPS</div>
+          <div class="slot-hint">Formulario único de reclamación</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir PDF<input type="file" accept="application/pdf,.pdf"></div>
+        </div>
+      </div>
+
+      <div class="slot" data-slot="factura">
+        <div class="slot-num">6</div>
+        <div>
+          <div class="slot-name">Factura</div>
+          <div class="slot-hint">Factura de venta</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir PDF<input type="file" accept="application/pdf,.pdf"></div>
+        </div>
+      </div>
+
+      <div class="slot" data-slot="xmlFile">
+        <div class="slot-num">7</div>
+        <div>
+          <div class="slot-name">XML factura electrónica</div>
+          <div class="slot-hint">Un solo archivo para toda la carpeta</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir XML<input type="file" accept=".xml,text/xml,application/xml"></div>
+        </div>
+      </div>
+
+      <div class="slot" data-slot="jsonFile">
+        <div class="slot-num">8</div>
+        <div>
+          <div class="slot-name">JSON factura electrónica</div>
+          <div class="slot-hint">Un solo archivo para toda la carpeta</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir JSON<input type="file" accept=".json,application/json"></div>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button class="primary-btn" id="generateBtn">Generar carpeta FEXXXX</button>
+        <span id="statusMsg"></span>
+      </div>
+
+      <div class="log" id="log">
+        <h3>Resultado</h3>
+        <ul id="logList"></ul>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="foot">Todo el proceso ocurre en tu navegador — los PDF no se suben a ningún servidor. Para crear la carpeta directamente en tu disco usa Chrome o Edge; en otros navegadores se entrega un .zip con la carpeta dentro.</footer>
+</div>
+
+<script>
+const feInput = document.getElementById('numeroFactura');
+const fePreview = document.getElementById('fePreview');
+const aseguradoraSel = document.getElementById('aseguradora');
+const groupPreview = document.getElementById('groupPreview');
+const statusMsg = document.getElementById('statusMsg');
+const generateBtn = document.getElementById('generateBtn');
+const logBox = document.getElementById('log');
+const logList = document.getElementById('logList');
+
+const state = {
+  files: {}, // key -> File
+  consultaCount: 1 // number of consulta/orden pairs currently shown (1 to 3)
+};
+
+const MAX_CONSULTAS = 3;
+const ORDINALES = { 2: '2ª', 3: '3ª' };
+
+function bindFileSlot(slot) {
+  const key = slot.dataset.slot;
+  const input = slot.querySelector('input[type="file"]');
+  const status = slot.querySelector('.file-status');
+  input.addEventListener('change', () => {
+    const f = input.files[0];
+    if (f) {
+      const nameLower = f.name.toLowerCase();
+      if (key === 'xmlFile' && !nameLower.endsWith('.xml')) {
+        status.textContent = 'Debe ser un .xml';
+        status.classList.remove('loaded');
+        delete state.files[key];
+        input.value = '';
+        return;
+      }
+      if (key === 'jsonFile' && !nameLower.endsWith('.json')) {
+        status.textContent = 'Debe ser un .json';
+        status.classList.remove('loaded');
+        delete state.files[key];
+        input.value = '';
+        return;
+      }
+      if (key !== 'xmlFile' && key !== 'jsonFile' && f.type !== 'application/pdf' && !nameLower.endsWith('.pdf')) {
+        status.textContent = 'Debe ser un PDF';
+        status.classList.remove('loaded');
+        delete state.files[key];
+        input.value = '';
+        return;
+      }
+      state.files[key] = f;
+      status.textContent = f.name;
+      status.classList.add('loaded');
+    } else {
+      delete state.files[key];
+      status.textContent = 'Sin archivo';
+      status.classList.remove('loaded');
+    }
+    updatePreview();
+  });
+}
+
+document.querySelectorAll('.slot').forEach(bindFileSlot);
+
+function renderExtraConsultas() {
+  const container = document.getElementById('extraConsultas');
+  container.innerHTML = '';
+  for (let i = 2; i <= state.consultaCount; i++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'extra-group';
+    wrap.innerHTML = `
+      <div class="slot" data-slot="orden${i}">
+        <div class="slot-num">·</div>
+        <div>
+          <div class="slot-name">Orden de consulta (${ORDINALES[i]})</div>
+          <div class="slot-hint">Orden o anexo adicional</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir PDF<input type="file" accept="application/pdf,.pdf"></div>
+        </div>
+      </div>
+      <div class="slot" data-slot="historia${i}">
+        <div class="slot-num">·</div>
+        <div>
+          <div class="slot-name">Historia de consulta (${ORDINALES[i]})</div>
+          <div class="slot-hint">Historia adicional de la clínica</div>
+        </div>
+        <div class="slot-file">
+          <span class="file-status">Sin archivo</span>
+          <div class="file-btn">Elegir PDF<input type="file" accept="application/pdf,.pdf"></div>
+        </div>
+      </div>
+      ${i === state.consultaCount ? `<div style="padding:14px 0 20px;"><button type="button" class="ghost-btn remove" data-remove-consulta="${i}">Quitar ${ORDINALES[i]} consulta</button></div>` : ''}
+    `;
+    container.appendChild(wrap);
+    wrap.querySelectorAll('.slot').forEach(bindFileSlot);
+    const removeBtn = wrap.querySelector('[data-remove-consulta]');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        const n = state.consultaCount;
+        ['orden' + n, 'historia' + n].forEach(k => delete state.files[k]);
+        state.consultaCount--;
+        renderExtraConsultas();
+        updateAddButton();
+        updatePreview();
+      });
+    }
+  }
+}
+
+function updateAddButton() {
+  document.getElementById('addConsultaWrap').style.display =
+    state.consultaCount >= MAX_CONSULTAS ? 'none' : 'block';
+}
+
+document.getElementById('addConsultaBtn').addEventListener('click', () => {
+  if (state.consultaCount >= MAX_CONSULTAS) return;
+  state.consultaCount++;
+  renderExtraConsultas();
+  updateAddButton();
+  updatePreview();
+});
+
+feInput.addEventListener('input', updatePreview);
+aseguradoraSel.addEventListener('change', updatePreview);
+
+function feNumber() {
+  const raw = feInput.value.trim();
+  return raw ? 'FE' + raw : 'FE—';
+}
+
+// Returns the list of {name, keys[]} groups for the selected aseguradora
+function buildGroups() {
+  const aseg = aseguradoraSel.value;
+  const fe = feInput.value.trim();
+  const feName = fe ? ('FE' + fe) : 'FE____';
+  const consultaKeys = ['hcInicial'];
+  for (let i = 1; i <= state.consultaCount; i++) {
+    consultaKeys.push('orden' + i, 'historia' + i);
+  }
+
+  if (!aseg) return [];
+
+  switch (aseg) {
+    case 'AXA':
+      return [
+        { name: 'HISTORIA CLINICA', keys: consultaKeys },
+        { name: 'DOCUMENTOS', keys: ['documentos'] },
+        { name: 'FURIPS', keys: ['furips'] },
+        { name: 'FACTURA', keys: ['factura'] },
+      ];
+    case 'BOLIVAR':
+    case 'SOLIDARIA':
+      return [
+        { name: `${feName}_SOP_1`, keys: ['furips', ...consultaKeys, 'documentos'] },
+        { name: `${feName}`, keys: ['factura'] },
+      ];
+    case 'ESTADO':
+    case 'HDI':
+    case 'MUNDIAL':
+    case 'SURAMERICANA':
+      return [
+        { name: `${feName}`, keys: ['furips', 'factura', ...consultaKeys, 'documentos'] },
+      ];
+    case 'PREVISORA':
+      return [
+        { name: `EPI_901273698_${feName}`, keys: consultaKeys },
+        { name: `PDX_901273698_${feName}`, keys: ['documentos'] },
+        { name: `Furips_901273698_${feName}`, keys: ['furips'] },
+        { name: `FEV_901273698_${feName}`, keys: ['factura'] },
+      ];
+    default:
+      return [];
+  }
+}
+
+function updatePreview() {
+  fePreview.textContent = feNumber();
+  const groups = buildGroups();
+  if (!groups.length) {
+    groupPreview.textContent = 'Selecciona una aseguradora y una factura para ver el resultado.';
+    return;
+  }
+  const fe = feInput.value.trim();
+  const feName = fe ? ('FE' + fe) : 'FE____';
+  let html = `<div class="grp">📁 <b>${feName}/</b></div>`;
+  html += groups.map(g => {
+    const have = g.keys.filter(k => state.files[k]).length;
+    return `<div class="grp">${g.name}.pdf — ${have}/${g.keys.length} soportes listos</div>`;
+  }).join('');
+  const xmlOk = state.files.xmlFile ? state.files.xmlFile.name : 'XML — 0/1';
+  const jsonOk = state.files.jsonFile ? state.files.jsonFile.name : 'JSON — 0/1';
+  html += `<div class="grp">${xmlOk}</div>`;
+  html += `<div class="grp">${jsonOk}</div>`;
+  groupPreview.innerHTML = html;
+}
+
+const KEY_LABELS = {
+  hcInicial: 'HC inicial',
+  orden1: 'Orden de consulta',
+  historia1: 'Historia de consulta',
+  orden2: 'Orden de consulta (2ª)',
+  historia2: 'Historia de consulta (2ª)',
+  orden3: 'Orden de consulta (3ª)',
+  historia3: 'Historia de consulta (3ª)',
+  documentos: 'Documentos',
+  furips: 'FURIPS',
+  factura: 'Factura',
+  xmlFile: 'XML factura electrónica',
+  jsonFile: 'JSON factura electrónica'
+};
+
+const supportsFolderPicker = typeof window.showDirectoryPicker === 'function';
+
+async function mergeFilesToPdfBytes(fileList) {
+  const { PDFDocument } = PDFLib;
+  const merged = await PDFDocument.create();
+  for (const file of fileList) {
+    const bytes = await file.arrayBuffer();
+    const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const pages = await merged.copyPages(src, src.getPageIndices());
+    pages.forEach(p => merged.addPage(p));
+  }
+  return merged.save();
+}
+
+function setStatus(text, type) {
+  statusMsg.textContent = text;
+  statusMsg.className = type || '';
+}
+
+generateBtn.addEventListener('click', async () => {
+  setStatus('', '');
+  logBox.classList.remove('show');
+  logList.innerHTML = '';
+
+  const aseg = aseguradoraSel.value;
+  const fe = feInput.value.trim();
+
+  if (!aseg) { setStatus('Selecciona una aseguradora.', 'error'); return; }
+  if (!fe) { setStatus('Ingresa el número de factura.', 'error'); return; }
+
+  const groups = buildGroups();
+  const missing = [];
+  groups.forEach(g => {
+    g.keys.forEach(k => {
+      if (!state.files[k] && !missing.includes(k)) missing.push(k);
+    });
+  });
+  if (!state.files.xmlFile) missing.push('xmlFile');
+  if (!state.files.jsonFile) missing.push('jsonFile');
+  if (missing.length) {
+    setStatus('Faltan documentos: ' + [...new Set(missing)].map(k => KEY_LABELS[k]).join(', '), 'error');
+    return;
+  }
+
+  const feName = 'FE' + fe;
+  generateBtn.disabled = true;
+
+  try {
+    // Build the final file list once: merged PDFs + the single xml + the single json
+    setStatus('Uniendo los PDF…', '');
+    const outputFiles = []; // { name, bytes(Uint8Array) }
+    for (const g of groups) {
+      const files = g.keys.map(k => state.files[k]);
+      const bytes = await mergeFilesToPdfBytes(files);
+      outputFiles.push({ name: `${g.name}.pdf`, bytes, note: `${g.keys.length} soporte(s) unidos` });
+    }
+    const xmlBytes = new Uint8Array(await state.files.xmlFile.arrayBuffer());
+    const jsonBytes = new Uint8Array(await state.files.jsonFile.arrayBuffer());
+    outputFiles.push({ name: state.files.xmlFile.name, bytes: xmlBytes, note: 'copiado tal cual' });
+    outputFiles.push({ name: state.files.jsonFile.name, bytes: jsonBytes, note: 'copiado tal cual' });
+
+    if (supportsFolderPicker) {
+      setStatus('Elige la ubicación donde crear la carpeta ' + feName + '…', '');
+      const parentHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      const folderHandle = await parentHandle.getDirectoryHandle(feName, { create: true });
+
+      setStatus('Guardando archivos en la carpeta ' + feName + '…', '');
+      for (const f of outputFiles) {
+        const fileHandle = await folderHandle.getFileHandle(f.name, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(f.bytes);
+        await writable.close();
+      }
+
+      logList.innerHTML = outputFiles.map(f => `<li>${f.name} <b>${f.note}</b></li>`).join('');
+      logBox.classList.add('show');
+      setStatus(`Listo. Se creó la carpeta "${feName}" con ${outputFiles.length} archivos.`, 'success');
+    } else {
+      // Fallback for browsers without folder-write support (Firefox, Safari):
+      // download a .zip whose single top-level folder is FEXXXX.
+      setStatus('Tu navegador no permite guardar carpetas directamente; se descargará un .zip que contiene la carpeta ' + feName + '…', '');
+      const zip = new JSZip();
+      const folder = zip.folder(feName);
+      outputFiles.forEach(f => folder.file(f.name, f.bytes));
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${feName}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      logList.innerHTML = outputFiles.map(f => `<li>${f.name} <b>${f.note}</b></li>`).join('');
+      logBox.classList.add('show');
+      setStatus(`Listo. Descomprime el .zip: contiene la carpeta "${feName}" con ${outputFiles.length} archivos.`, 'success');
+    }
+  } catch (err) {
+    console.error(err);
+    if (err.name === 'AbortError') {
+      setStatus('Se canceló la selección de carpeta.', 'error');
+    } else {
+      setStatus('Error al procesar los archivos: ' + err.message, 'error');
+    }
+  } finally {
+    generateBtn.disabled = false;
+  }
+});
+
+updateAddButton();
+updatePreview();
+</script>
+</body>
+</html>
